@@ -15,9 +15,6 @@ jobs:
   pipeline:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: xgb-compression-pipeline
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────
@@ -109,8 +106,8 @@ jobs:
         with:
           name: pipeline-artifacts-${{ github.sha }}
           path: |
-            xgb-compression-pipeline/artifacts/benchmark_results.json
-            xgb-compression-pipeline/artifacts/gate_report.json
-            xgb-compression-pipeline/artifacts/drift_report.json
-            xgb-compression-pipeline/artifacts/model_meta.json
+            artifacts/benchmark_results.json
+            artifacts/gate_report.json
+            artifacts/drift_report.json
+            artifacts/model_meta.json
           retention-days: 30
