@@ -65,7 +65,12 @@ def bench_onnx(X: np.ndarray, y: np.ndarray):
         out = sess.run(None, {inp: X})
     elapsed = (time.perf_counter() - t0) / RUNS * 1000
 
-    proba = out[1][:, 1] if out[1].ndim == 2 else out[0]
+    if isinstance(out[1], list):
+        proba = np.array([d[1] for d in out[1]])
+    elif hasattr(out[1], 'ndim') and out[1].ndim == 2:
+        proba = out[1][:, 1]
+    else:
+        proba = out[1]
     pred  = (proba > 0.5).astype(int)
     return {
         "model":        "onnx_fp32",

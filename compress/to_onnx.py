@@ -1,12 +1,12 @@
-"""Convert XGBoost pkl → ONNX FP32."""
+"""Convert XGBoost pkl → ONNX FP32 using onnxmltools."""
 import os
 import pickle
 import json
 import numpy as np
 import onnx
 import onnxruntime as ort
-from skl2onnx import convert_sklearn
-from skl2onnx.common.data_types import FloatTensorType
+from onnxmltools import convert_xgboost
+from onnxmltools.convert.common.data_types import FloatTensorType
 
 MODEL_PKL  = os.getenv("MODEL_PKL",  "/artifacts/model.pkl")
 MODEL_ONNX = os.getenv("MODEL_ONNX", "/artifacts/model_fp32.onnx")
@@ -30,16 +30,11 @@ def convert(pkl_path: str, onnx_path: str):
     with open(pkl_path, "rb") as f:
         model = pickle.load(f)
 
-    meta = load_meta()
+    meta       = load_meta()
     n_features = len(meta["feature_cols"])
 
     initial_type = [("float_input", FloatTensorType([None, n_features]))]
-    onnx_model   = convert_sklearn(
-        model,
-        initial_types=initial_type,
-        target_opset=17,
-        options={"zipmap": False},
-    )
+    onnx_model   = convert_xgboost(model, initial_types=initial_type)
 
     os.makedirs(os.path.dirname(onnx_path), exist_ok=True)
     with open(onnx_path, "wb") as f:
@@ -50,18 +45,23 @@ def convert(pkl_path: str, onnx_path: str):
 
 
 def validate(pkl_path: str, onnx_path: str, n_samples: int = 100):
-    """Sanity-check: ONNX outputs match pkl outputs within tolerance."""
     with open(pkl_path, "rb") as f:
         model = pickle.load(f)
 
-    rng  = np.random.default_rng(0)
-    X    = rng.uniform(0, 1, (n_samples, len(FEATURE_COLS))).astype(np.float32)
-    ref  = model.predict_proba(X)[:, 1]
+    rng = np.random.default_rng(0)
+    X   = rng.uniform(0, 1, (n_samples, len(FEATURE_COLS))).astype(np.float32)
+    ref = model.predict_proba(X)[:, 1]
 
     sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
     out  = sess.run(None, {"float_input": X})
-    # output[1] is probabilities array shape (n, 2)
-    pred = out[1][:, 1] if out[1].ndim == 2 else out[0]
+    # onnxmltools XGBoost output: [labels, probabilities_map]
+    # probabilities_map is list of {0: p0, 1: p1} dicts
+    if isinstance(out[1], list):
+        pred = np.array([d[1] for d in out[1]])
+    elif hasattr(out[1], 'ndim') and out[1].ndim == 2:
+        pred = out[1][:, 1]
+    else:
+        pred = out[1]
 
     max_diff = float(np.abs(ref - pred).max())
     print(f"Max probability diff pkl vs ONNX: {max_diff:.6f}")

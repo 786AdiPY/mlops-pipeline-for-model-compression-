@@ -117,7 +117,12 @@ def _infer_pkl(model, X: np.ndarray):
 def _infer_onnx(sess: ort.InferenceSession, X: np.ndarray):
     inp  = sess.get_inputs()[0].name
     out  = sess.run(None, {inp: X})
-    proba = out[1][0, 1] if out[1].ndim == 2 else float(out[0][0])
+    if isinstance(out[1], list):
+        proba = out[1][0][1]
+    elif hasattr(out[1], 'ndim') and out[1].ndim == 2:
+        proba = out[1][0, 1]
+    else:
+        proba = float(out[0][0])
     return float(proba)
 
 

@@ -6,6 +6,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     xgboost==2.0.3 \
     scikit-learn==1.4.2 \
+    onnxmltools==1.12.0 \
     skl2onnx==1.16.0 \
     onnx==1.16.0 \
     onnxruntime==1.18.0 \
